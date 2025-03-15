@@ -1,0 +1,16 @@
+{
+  "name": "nodejsandroidjavawebview",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "create": "node index.js create",
+    "install": "node index.js install",
+    "build": "node index.js build",
+    "run": "node index.js run",
+    "configure": "node index.js configure"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
