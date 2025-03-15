@@ -1,6 +1,7 @@
 const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const commander = require("commander");
 
 class AndroidProjectManager {
     constructor(projectName = "MyAndroidApp") {
@@ -141,3 +142,62 @@ import android.webkit.WebViewClient;`
         console.log("✅ WebView added successfully!");
     }
 }
+
+// Commander CLI implementation
+commander
+    .command('create-project')
+    .description('Create a new Android project')
+    .action(() => {
+        const manager = new AndroidProjectManager();
+        manager.createProject();
+    });
+
+commander
+    .command('install-deps')
+    .description('Install dependencies for the Android project')
+    .action(() => {
+        const manager = new AndroidProjectManager();
+        manager.installDependencies();
+    });
+
+commander
+    .command('build')
+    .description('Build the Android project')
+    .action(() => {
+        const manager = new AndroidProjectManager();
+        manager.buildProject();
+    });
+
+commander
+    .command('run-app')
+    .description('Run the Android app')
+    .action(() => {
+        const manager = new AndroidProjectManager();
+        manager.runApp();
+    });
+
+commander
+    .command('ensure-assets')
+    .description('Ensure assets folder exists')
+    .action(() => {
+        const manager = new AndroidProjectManager();
+        manager.ensureAssetsFolder();
+    });
+
+commander
+    .command('create-index-html')
+    .description('Create index.html in the assets folder')
+    .action(() => {
+        const manager = new AndroidProjectManager();
+        manager.createIndexHtml();
+    });
+
+commander
+    .command('add-webview')
+    .description('Add WebView to MainActivity')
+    .action(() => {
+        const manager = new AndroidProjectManager();
+        manager.addWebView();
+    });
+
+commander.parse(process.argv);
