@@ -1,131 +1,197 @@
-const { program } = require('commander');
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const { execSync } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+const commander = require("commander");
 
 class AndroidProjectManager {
-    constructor(projectName = "MyAndroidApp", projectPath = "./") {
+    constructor(projectName = "MyAndroidApp") {
         this.projectName = projectName;
-        this.projectPath = projectPath;
-        this.supportedVersions = ["10", "11", "12", "13"];
-        this.defaultVersion = this.supportedVersions[this.supportedVersions.length - 1];
+        this.projectPath = path.join(__dirname, this.projectName);
+        this.assetsPath = path.join(this.projectPath, "app/src/main/assets");
     }
 
     runCommand(command, workingDir = this.projectPath) {
-        return new Promise((resolve, reject) => {
-            exec(command, { cwd: workingDir }, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`Error executing command: ${stderr}`);
-                    reject(error);
-                } else {
-                    resolve(stdout);
-                }
-            });
-        });
+        try {
+            console.log(`🔹 Executing: ${command}`);
+            execSync(command, { stdio: "inherit", cwd: workingDir });
+        } catch (error) {
+            console.error(`❌ Error executing command: ${command}\n`, error.message);
+        }
     }
 
-    async createProject() {
-        await this.runCommand("cmd-to-create-android-project");
+    createProject() {
+        if (!fs.existsSync(this.projectPath)) {
+            fs.mkdirSync(this.projectPath, { recursive: true });
+        }
+        console.log(`🚀 Creating Android project: ${this.projectName}`);
+        this.runCommand("gradle init", this.projectPath);
+        console.log("✅ Project created successfully!");
     }
 
-    async installDependencies() {
-        await this.runCommand("cmd-to-install-dependencies");
+    installDependencies() {
+        console.log("📦 Installing Android SDK dependencies...");
+        this.runCommand("sdkmanager --install 'platforms;android-34' 'build-tools;34.0.0'");
+        console.log("✅ Dependencies installed!");
     }
 
-    async buildProject() {
-        await this.runCommand("cmd-to-build-project");
+    buildProject() {
+        console.log("⚙️  Building the Android project...");
+        this.runCommand("./gradlew build");
+        console.log("✅ Build completed successfully!");
     }
 
-    async runApp() {
-        await this.runCommand("cmd-to-run-app");
+    runApp() {
+        console.log("📱 Running the Android app...");
+        this.runCommand("./gradlew installDebug");
+        console.log("✅ App installed and running!");
     }
 
     ensureAssetsFolder() {
-        if (!fs.existsSync(path.join(this.projectPath, "assets"))) {
-            fs.mkdirSync(path.join(this.projectPath, "assets"));
+        if (!fs.existsSync(this.assetsPath)) {
+            fs.mkdirSync(this.assetsPath, { recursive: true });
+            console.log("📂 Created assets folder.");
         }
     }
 
-    async createIndexHtml() {
-        const filePath = path.join(this.projectPath, "index.html");
-        fs.writeFileSync(filePath, "<!DOCTYPE html><html><head><title>WebView App</title></head><body><h1>Hello from WebView!</h1></body></html>");
+    createIndexHtml() {
+        this.ensureAssetsFolder();
+        const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebView Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        h1 { color: #3498db; }
+    </style>
+</head>
+<body>
+    <h1>Welcome to WebView!</h1>
+    <p>This page is loaded from the <strong>assets</strong> folder.</p>
+</body>
+</html>
+        `;
+        const indexHtmlPath = path.join(this.assetsPath, "index.html");
+        fs.writeFileSync(indexHtmlPath, htmlContent, "utf8");
+        console.log("✅ Created index.html in assets folder.");
     }
 
-    async findMainActivity() {
-        const files = await this.runCommand("cmd-to-find-main-activity");
-        console.log(`Found MainActivity: ${files}`);
-    }
+    findMainActivity() {
+        const javaSrcPath = path.join(this.projectPath, "app/src/main/java");
+        if (!fs.existsSync(javaSrcPath)) return null;
 
-    async addWebView() {
-        await this.runCommand("cmd-to-add-webview");
-    }
-
-    async selectAndroidVersion(version) {
-        if (!this.supportedVersions.includes(version)) {
-            throw new Error(`Unsupported Android version: ${version}. Please choose one of the following versions: ${this.supportedVersions.join(", ")}`);
+        let mainActivityPath = null;
+        function searchFiles(dir) {
+            const files = fs.readdirSync(dir);
+            for (const file of files) {
+                const fullPath = path.join(dir, file);
+                if (fs.statSync(fullPath).isDirectory()) {
+                    searchFiles(fullPath);
+                } else if (file === "MainActivity.java") {
+                    mainActivityPath = fullPath;
+                    return;
+                }
+            }
         }
-        this.androidVersion = version;
-        console.log(`Selected Android version: ${this.androidVersion}`);
+
+        searchFiles(javaSrcPath);
+        return mainActivityPath;
     }
 
-    async configureForVersion(version) {
-        await this.selectAndroidVersion(version);
-        if (version >= 10 && version < 13) {
-            console.log(`Configuring project for Android ${version}...`);
-            await this.runCommand("cmd-to-configure-for-android-version", this.projectPath);
-        } else if (version === 13) {
-            console.log(`Special configuration for Android ${version}...`);
-            await this.runCommand("cmd-to-special-configure-for-android-13", this.projectPath);
+    addWebView() {
+        const mainActivityPath = this.findMainActivity();
+        if (!mainActivityPath) {
+            console.error("❌ MainActivity.java not found!");
+            return;
         }
+
+        let mainActivityCode = fs.readFileSync(mainActivityPath, "utf8");
+
+        if (mainActivityCode.includes("new WebView(this)")) {
+            console.log("✅ WebView already added!");
+            return;
+        }
+
+        mainActivityCode = mainActivityCode.replace(
+            "setContentView(R.layout.activity_main);",
+            `WebView webView = new WebView(this);
+webView.getSettings().setJavaScriptEnabled(true);
+webView.setWebViewClient(new WebViewClient());
+webView.loadUrl("file:///android_asset/index.html");
+setContentView(webView);`
+        );
+
+        if (!mainActivityCode.includes("import android.webkit.WebView;")) {
+            mainActivityCode = `${mainActivityCode.replace(
+                "import android.os.Bundle;",
+                `import android.os.Bundle;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;`
+            )}`;
+        }
+
+        fs.writeFileSync(mainActivityPath, mainActivityCode, "utf8");
+        console.log("✅ WebView added successfully!");
     }
 }
 
-// Command line interface setup with commander
-program.version('0.1.0').description('Manage Android projects with WebView integration.');
-
-program
-    .command('create <projectName> [path]')
+// Commander CLI implementation
+commander
+    .command('create-project')
     .description('Create a new Android project')
-    .action(async (projectName, path) => {
-        const manager = new AndroidProjectManager(projectName, path || "./");
-        await manager.createProject();
-        console.log(`Created ${manager.projectName} in ${manager.projectPath}`);
+    .action(() => {
+        const manager = new AndroidProjectManager();
+        manager.createProject();
     });
 
-program
-    .command('install')
+commander
+    .command('install-deps')
     .description('Install dependencies for the Android project')
-    .action(async () => {
-        const manager = new AndroidProjectManager("MyAndroidApp", "./my_android_project");
-        await manager.installDependencies();
-        console.log(`Installed dependencies for ${manager.projectName}`);
+    .action(() => {
+        const manager = new AndroidProjectManager();
+        manager.installDependencies();
     });
 
-program
+commander
     .command('build')
     .description('Build the Android project')
-    .action(async () => {
-        const manager = new AndroidProjectManager("MyAndroidApp", "./my_android_project");
-        await manager.buildProject();
-        console.log(`Built ${manager.projectName}`);
+    .action(() => {
+        const manager = new AndroidProjectManager();
+        manager.buildProject();
     });
 
-program
-    .command('run')
-    .description('Run the Android project')
-    .action(async () => {
-        const manager = new AndroidProjectManager("MyAndroidApp", "./my_android_project");
-        await manager.runApp();
-        console.log(`Running ${manager.projectName}...`);
+commander
+    .command('run-app')
+    .description('Run the Android app')
+    .action(() => {
+        const manager = new AndroidProjectManager();
+        manager.runApp();
     });
 
-program
-    .command('configure <version>')
-    .description('Configure the Android project for a specific version')
-    .action(async (version) => {
-        const manager = new AndroidProjectManager("MyAndroidApp", "./my_android_project");
-        await manager.configureForVersion(version);
-        console.log(`Configured ${manager.projectName} for Android ${version}`);
+commander
+    .command('ensure-assets')
+    .description('Ensure assets folder exists')
+    .action(() => {
+        const manager = new AndroidProjectManager();
+        manager.ensureAssetsFolder();
     });
 
-program.parse(process.argv);
+commander
+    .command('create-index-html')
+    .description('Create index.html in the assets folder')
+    .action(() => {
+        const manager = new AndroidProjectManager();
+        manager.createIndexHtml();
+    });
+
+commander
+    .command('add-webview')
+    .description('Add WebView to MainActivity')
+    .action(() => {
+        const manager = new AndroidProjectManager();
+        manager.addWebView();
+    });
+
+commander.parse(process.argv);

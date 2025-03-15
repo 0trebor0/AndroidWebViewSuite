@@ -1,6 +1,7 @@
 {
-  "name": "androidwebviewsuite",
+  "name": "androidwebviewmanager",
   "version": "1.0.0",
+  "description": "A CLI tool to manage Android projects with WebView integration.",
   "main": "index.js",
   "scripts": {
     "create": "node index.js create",
@@ -9,8 +10,16 @@
     "run": "node index.js run",
     "configure": "node index.js configure"
   },
+  "bin": {
+    "androidwebviewmanager": "./index.js"
+  },
   "keywords": [],
-  "author": "",
+  "author": "webdevme@outlook.com",
   "license": "ISC",
-  "description": ""
+  "dependencies": {
+    "child_process": "^1.0.2",
+    "commander": "^9.5.0",
+    "fs": "^0.0.1-security",
+    "path": "^0.12.7"
+  }
 }
